@@ -10,6 +10,7 @@
 #' @param endpoint Column name of the endpoint.
 #' @param endpoint.code Column name of the endpoint status code.
 #' @param features Vector containing the features to run cox regression on.
+#' @param broom.fun Which broom function to run on the cox regression results.
 #' @param group Column name containing the groups to run cox regression on. If,
 #'   specified, cox regression is run separately for each group.
 #' @return Cox regression results returned in a tidy data.frame format.
@@ -36,7 +37,13 @@
 #'
 #' # Run Multivariate Cox Regression For Each rx Group
 #' get_cox_res(colon, endpoint, endpoint.code, multi.features, group)
-get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) {
+get_cox_res <- function(
+  in.df, 
+  endpoint, endpoint.code, 
+  features, 
+  group = NULL,
+  broom.fun = c("tidy", "glance")
+) {
 
   # Input Checking
   if (is.null(features)) {
@@ -51,6 +58,8 @@ get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) 
     test.type <- "multicox"
   }
 
+  broom.fun <- match.arg(broom.fun)
+
   # Checking if All Columns are Present
   input.col.names <- c(endpoint, endpoint.code, features)
   if (!all(input.col.names %in% colnames(in.df))) {
@@ -58,6 +67,17 @@ get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) 
       input.col.names[which(!input.col.names %in% colnames(in.df))]
     stop(paste0("Missing columns: ", 
                 paste(missing.col.names, collapse = ", ")))
+  }
+
+  # Check that endpoint and endpoint.code were not accidentally swapped
+  endpoint_code_factors <- levels(factor(in.df[[endpoint.code]]))
+  if (length(endpoint_code_factors) > 2) {
+    stop(
+      glue::glue(
+        "Error: More than two factor levels in your endpoint.code. 
+        Did you swap your endpoint and endpoint.code columns?"
+      )
+    )
   }
 
   # Running Cox Regression
@@ -69,23 +89,40 @@ get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) 
 
   if (is.null(group)) {
     # Run Cox Regression 
-    cox.res.df <- 
-      survival::coxph(formula = cox.formula, data = in.df) %>%
-      broom::tidy(exponentiate = TRUE)
+    if (broom.fun == "tidy") {
+      cox.res.df <- 
+        survival::coxph(formula = cox.formula, data = in.df) %>%
+        broom::tidy(exponentiate = TRUE)
+    } else if (broom.fun == "glance") {
+      cox.res.df <- 
+        survival::coxph(formula = cox.formula, data = in.df) %>%
+        broom::glance()
+    }
 
   } else {
     # Split into group and then run Cox regression
     split.call <- lazyeval::interp(quote(list(.$a)),
                                    a = group)
 
-    cox.res.df <- 
-      in.df %>%
-      split(f = eval(split.call)) %>%
-      purrr::map(~
-        survival::coxph(formula = cox.formula, data = .) %>%
-        broom::tidy(exponentiate = TRUE)
-      ) %>%
-      dplyr::bind_rows(.id = "group")
+    cox.res.df <- in.df %>%
+      split(f = eval(split.call)) 
+
+    if (broom.fun == "tidy") {
+      cox.res.df <- 
+        cox.res.df %>%
+        purrr::map(~
+          survival::coxph(formula = cox.formula, data = .) %>%
+          broom::tidy(exponentiate = TRUE)
+        ) 
+    } else if (broom.fun == "glance") {
+      cox.res.df <- 
+        cox.res.df %>%
+        purrr::map(~
+          survival::coxph(formula = cox.formula, data = .) %>%
+          broom::glance()
+        ) 
+    }
+    cox.res.df <- dplyr::bind_rows(cox.res.df, .id = "group")
   }
 
   # Add test.type as column to output data.frame
@@ -113,14 +150,18 @@ get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) 
 #'   TRUE, then this information is plotted along the x-axis using 
 #'   ggplot2::geom_errorbar(). This means that the x.lab and y.lab will be 
 #'   flipped to. 
-#' @param facet.formula Facet formula for facetting the plot. This should be
+#' @param facet.formula Facet formula for faceting the plot. This should be
 #'   used plotting results from \code{iter_get_cox_res} or when the parameter 
 #'   group is used in \code{get_cox_res} and \code{iter_get_cox_res}.
 #' @param facet.scales Parameter passed to the scales parameter in 
 #'   \code{ggplot2::facet_grid}.
+#' @param add_sig_line Boolean to indicate if a red, dotted, vertical line 
+#'   should be added to allow users to see if a Cox regression confidence 
+#'   interval overlaps with 1.
 #' @return Forest plot of cox regression results in the ggplot framework.
 #' @export
 #' @examples
+#' \dontrun{
 #' library("survival")
 #' library("magrittr")
 #' library("dplyr")
@@ -159,9 +200,15 @@ get_cox_res <- function(in.df, endpoint, endpoint.code, features, group = NULL) 
 #'                color.col = "sig_flag", 
 #'                color.legend.name = "Significant Flag", 
 #'                coord.flip = TRUE)
-plot_cox_res <- function(cox.res.df, x.lab, y.lab, y.col = "term", color.col, 
-                         color.legend.name, coord.flip = FALSE,
-                         facet.formula = NULL, facet.scales = "fixed") {
+#' }
+plot_cox_res <- function(
+  cox.res.df, 
+  x.lab, y.lab, y.col = "term", 
+  color.col, color.legend.name, 
+  coord.flip = FALSE, 
+  facet.formula = NULL, facet.scales = "fixed", 
+  add_sig_line = TRUE
+) {
 
   if (!coord.flip) {
     p <- cox.res.df %>%
@@ -179,6 +226,8 @@ plot_cox_res <- function(cox.res.df, x.lab, y.lab, y.col = "term", color.col,
       ggplot2::geom_errorbar(width = 0.1) +
       ggplot2::geom_point()
   }
+
+  p <- add_sig_line_to_plot(p, coord.flip, add_sig_line)
 
   if (!missing(color.col)) {
     p <- p + ggplot2::aes_string(color = color.col)
@@ -205,4 +254,38 @@ plot_cox_res <- function(cox.res.df, x.lab, y.lab, y.col = "term", color.col,
   }
 
   p
+}
+
+#' Add a Cox regression statistical significance line 
+#'
+#' This function will add a Cox regression statistical significance line to the
+#' input ggplot2.
+#' 
+#' @param cur_plot ggplot2 object to add on to.
+#' @param coord_flip Boolean to indicate if the ggplot2 has been flipped or not.
+#' @param add_sig_line Boolean to indicate whether the significance line should
+#'   be added or not.
+add_sig_line_to_plot <- function(cur_plot, coord_flip, add_sig_line) {
+
+  if (!add_sig_line) {
+    return(cur_plot)
+  }
+
+  message("Adding significance line")
+
+  if (!coord_flip) {
+    cur_plot <- 
+      cur_plot + 
+      ggplot2::geom_vline(
+        xintercept = 1, linetype = "dotted", color = "red"
+      )
+  } else {
+    cur_plot <- 
+      cur_plot + 
+      ggplot2::geom_hline(
+        yintercept = 1, linetype = "dotted", color = "red"
+      )
+  }
+
+  cur_plot
 }

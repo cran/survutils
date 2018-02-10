@@ -6,7 +6,7 @@
 \usage{
 plot_cox_res(cox.res.df, x.lab, y.lab, y.col = "term", color.col,
   color.legend.name, coord.flip = FALSE, facet.formula = NULL,
-  facet.scales = "fixed")
+  facet.scales = "fixed", add_sig_line = TRUE)
 }
 \arguments{
 \item{cox.res.df}{data.frame output from \code{get_cox_res}.}
@@ -27,12 +27,16 @@ TRUE, then this information is plotted along the x-axis using
 ggplot2::geom_errorbar(). This means that the x.lab and y.lab will be 
 flipped to.}
 
-\item{facet.formula}{Facet formula for facetting the plot. This should be
+\item{facet.formula}{Facet formula for faceting the plot. This should be
 used plotting results from \code{iter_get_cox_res} or when the parameter 
 group is used in \code{get_cox_res} and \code{iter_get_cox_res}.}
 
 \item{facet.scales}{Parameter passed to the scales parameter in 
 \code{ggplot2::facet_grid}.}
+
+\item{add_sig_line}{Boolean to indicate if a red, dotted, vertical line 
+should be added to allow users to see if a Cox regression confidence 
+interval overlaps with 1.}
 }
 \value{
 Forest plot of cox regression results in the ggplot framework.
@@ -43,6 +47,7 @@ a forest plot showing the hazard ratio and confidence interval of the cox
 cox regression.
 }
 \examples{
+\dontrun{
 library("survival")
 library("magrittr")
 library("dplyr")
@@ -82,4 +87,4 @@ cox.res.df \%>\%
                color.legend.name = "Significant Flag", 
                coord.flip = TRUE)
 }
-
+}

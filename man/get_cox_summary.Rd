@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_cox_summary.R
 \name{get_cox_summary}
 \alias{get_cox_summary}
-\title{Summarizes the Cox Regression Analsysis}
+\title{Summarizes the Cox Regression Analysis}
 \usage{
 get_cox_summary(cox.res, ci = 95)
 }
@@ -22,4 +22,3 @@ results in a data.frame. It will calculate the confidence interval.
 cox.res <- survival::coxph(survival::Surv(time,status) ~ rx, survival::colon)
 get_cox_summary(cox.res)
 }
-
