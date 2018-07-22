@@ -1,6 +1,6 @@
-f966c59556c4992c534a159eed17ae0e *DESCRIPTION
+0680d967c8ef7d33f2d44ff7eec5964a *DESCRIPTION
 9eb051ce3921c537a128bf4209438b50 *NAMESPACE
-0c2a05f028844026430d114011c8726a *NEWS.md
+34cf83ed60d76db0460283cc3b50045a *NEWS.md
 f452478be481aff3d532288dc972d43e *R/cox_res.R
 edf674437f3cb493466b9bcf928f03a8 *R/get_c_stat.R
 771e2d0ce8a70f644767651c3d2f5077 *R/get_cox_summary.R
@@ -27,5 +27,5 @@ dfb67e8aebcb99822e2660d3e76c6cc5 *man/get_logrank_res.Rd
 47a244b124ee7ba3c73766712a11add1 *man/plot_cox_res.Rd
 54836afea1cdf0721d6afb4827ce8500 *man/survutils.Rd
 462acb9f27be1028bcc75231432fccc9 *tests/testthat.R
-170047a8b0de1fbdf7bd7e91e6ac847d *tests/testthat/test_get_cox_res.R
+79760c785bb8250eaac9aea41fbb361b *tests/testthat/test_get_cox_res.R
 eefaa243f8ff9c807690117864158341 *tests/testthat/test_plot_cox_res.R
